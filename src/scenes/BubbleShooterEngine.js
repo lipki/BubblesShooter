@@ -1,8 +1,8 @@
 import * as Phaser from 'https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.esm.js';
-import LevelManager from '../managers/Level.js';
-import VFXManager from '../managers/VFX.js';
+import LevelManager from '../managers/LevelManager.js';
 import Shooter from '../components/Shooter.js';
 import Timer from '../components/Timer.js';
+import Bubble from '../components/Bubble.js';
 import TextFormatting from '../utils/TextFormatting.js';
 
 import {
@@ -28,6 +28,8 @@ import {
     END_WIN,
     END_LOST,
     END_TIMEOUT,
+    STOCK_POS,
+    SHOOTER_POS
 } from '../constants.js';
 
 export default class BubbleShooterEngine extends Phaser.Scene {
@@ -56,15 +58,12 @@ export default class BubbleShooterEngine extends Phaser.Scene {
 
         this.levelManager = new LevelManager(this);
         this.shooter = new Shooter(this);
-        this.VFXManager = new VFXManager(this);
         this.timer = new Timer(this);
 
         this.listeners();
         this.levelManager.listeners();
-        this.VFXManager.listeners();
 
         const availabubbles = registry.get('availabubbles');
-        if (registry.get('debugMode')) console.log('Availabubbles : ', availabubbles);
 
         registry.set('bubbleInStock', availabubbles[Phaser.Math.Between(0, availabubbles.length - 1)]);
         this.nextBubble();
@@ -93,17 +92,15 @@ export default class BubbleShooterEngine extends Phaser.Scene {
     ux() {
 
         // target
-        const gem = this.registry.get('gem');
-
-        const targetsprite = this.add.sprite(gem.pixelX, gem.pixelY, 'target' + String(this.registry.get('level')).padStart(2, "0"));
+        const targetsprite = this.add.sprite(Bubble.GEM.pixel.x, Bubble.GEM.pixel.y, 'target' + String(this.registry.get('level')).padStart(2, "0"));
         this.targetContainer.add(targetsprite);
 
         const txtTarget = new TextFormatting(this, {
             text: 'TARGET!',
             vAlign: 'top',
             padding: { x: 0, y: 0 },
-            hOffset: -GAME_WIDTH / 2 + gem.sprite.x,
-            vOffset: gem.sprite.y - gem.sprite.height / 2 + gem.sprite.height,
+            hOffset: -GAME_WIDTH / 2 + Bubble.GEM.sprite.x,
+            vOffset: Bubble.GEM.sprite.y - Bubble.GEM.sprite.height / 2 + Bubble.GEM.sprite.height,
             fontSize: 35,
             styleColor: '#ffffff',
             styleStroke: { color: '#3159ff', tickness: 4 }
@@ -248,7 +245,6 @@ export default class BubbleShooterEngine extends Phaser.Scene {
         events.on('shoot-end', this.onShootEnd, this);
         events.on('level-done', this.onLevelDone, this);
         events.on('shutdown', this.destroy, this);
-        events.on('level-next', this.onLevelNext, this);
     }
 
     onLevelStart() {
@@ -282,11 +278,68 @@ export default class BubbleShooterEngine extends Phaser.Scene {
         const availabubbles = registry.get('availabubbles');
 
         registry.set('bubbleForShoot', registry.get('bubbleInStock'));
-        registry.set('bubbleInStock', availabubbles[Phaser.Math.Between(0, availabubbles.length - 1)]);
+        registry.set('bubbleInStock', availabubbles[Phaser.Math.Between(0, availabubbles.length -1)]);
 
-        if (registry.get('debugMode')) console.log('Engine emit bubble-switch');
-        events.emit('bubble-switch');
+        this.onBubbleSwitch();
 
+    }
+
+    onBubbleSwitch() {
+        if (this.registry.get('debugMode')) console.log('VFX exec bubble-switch');
+
+        const bubbleForShootID = this.registry.get('bubbleForShoot');
+
+        if (this.bubbleForShoot) this.bubbleForShoot.destroy();
+
+        this.bubbleForShoot = this.add.sprite(STOCK_POS.x, STOCK_POS.y, 'bubbles_sprites', bubbleForShootID);
+        this.bubbleContainer.add(this.bubbleForShoot);
+
+        this.tweens.add({
+            targets: this.bubbleForShoot,
+            ease: 'Sine.easeIn',
+            x: SHOOTER_POS.x,
+            y: SHOOTER_POS.y,
+            duration: 200
+        });
+
+        const bubbleInStockID = this.registry.get('bubbleInStock');
+
+        if (this.bubbleInStock) this.bubbleInStock.destroy();
+
+        const emitter = this.add.particles(0, 0, 'bubbles_sprites', {
+            x: { min: STOCK_POS.x - 32, max: STOCK_POS.x + 32 },
+            y: { min: STOCK_POS.y - 32, max: STOCK_POS.y + 32 },
+            moveToX: {
+                onEmit: () => STOCK_POS.x,
+                onUpdate: () => STOCK_POS.x
+            },
+            moveToY: {
+                onEmit: () => STOCK_POS.y,
+                onUpdate: () => STOCK_POS.y
+            },
+            lifespan: 1000,
+            speed: { min: 50, max: 100 },
+            scale: { start: 0.5, end: 0 },
+            alpha: { start: .5, end: 0 },
+            frame: bubbleInStockID - 12,
+            quantity: { start: 5, end: 0 }
+        });
+        this.bubbleContainer.add(emitter);
+
+        this.bubbleInStock = this.add.sprite(STOCK_POS.x, STOCK_POS.y, 'bubbles_sprites', bubbleInStockID);
+        this.bubbleContainer.add(this.bubbleInStock);
+        this.bubbleInStock.alpha = 0;
+
+        this.time.delayedCall(200, () => {
+            emitter.stop();
+        });
+
+        this.tweens.add({
+            targets: this.bubbleInStock,
+            ease: 'Sine.easeIn',
+            duration: 800,
+            alpha: 1
+        });
     }
 
     onShootEnd() {
@@ -333,7 +386,6 @@ export default class BubbleShooterEngine extends Phaser.Scene {
     destroy() {
         const events = this.events;
 
-        this.VFXManager.destroy();
         this.levelManager.destroy();
         this.timer.destroy();
 
@@ -342,7 +394,6 @@ export default class BubbleShooterEngine extends Phaser.Scene {
         events.off('bubble-shoot', this.onBubbleShoot, this);
         events.off('shoot-end', this.onShootEnd, this);
         events.off('level-done', this.onLevelDone, this);
-        events.off('level-next', this.onLevelNext, this);
         events.off('shutdown', this.destroy, this);
 
         this.anims.remove('target');
@@ -482,7 +533,7 @@ export default class BubbleShooterEngine extends Phaser.Scene {
             }, { // Switch de scène
                 at: DELAY_OUTRO_SWITCH,
                 run: () => {
-                    this.events.emit('level-next');
+                    this.onLevelNext();
                 }
             }
         ]);

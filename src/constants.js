@@ -16,6 +16,8 @@ export const DELAY_OUTRO_SWITCH = 4240;
 
 export const DELAY_LOST_CONTINUE = 5166;
 
+export const TIMER_DURATION = 120000;
+
 export const BUBBLE_SIZE = { x: 64, y: 74 };
 export const BUBBLE_HEXDIFF = (BUBBLE_SIZE.y - BUBBLE_SIZE.x) / 2;
 export const BUBBLE_HEXSIDE = 37;

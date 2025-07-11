@@ -28,6 +28,9 @@ export default class Shooter {
         this.keys = scene.input.keyboard.addKeys({ left: "Q", right: "D", slow: "S", zero: Phaser.Input.Keyboard.KeyCodes.NUMPAD_ZERO });
         this.cursors = scene.input.keyboard.createCursorKeys();
 
+        this.sprite = scene.add.image(SHOOTER_POS.x, SHOOTER_POS.y, 'shooter');
+        scene.bubbleContainer.add(this.sprite);
+
         if (scene.registry.get('debugMode')) this.graphics = scene.add.graphics();
 
     }
@@ -70,10 +73,8 @@ export default class Shooter {
         if (angle < -89) angle = -89;
         if (angle > 89) angle = 89;
 
-        if (oldangle != angle) {
-            if (scene.registry.get('debugMode')) console.log('Shooter emit shooter-rotate');
-            scene.events.emit('shooter-rotate', { angle: angle });
-        }
+        if (oldangle != angle)
+            this.sprite.angle = angle;
 
         // shoot
 
@@ -85,30 +86,40 @@ export default class Shooter {
             scene.registry.set('state', PLAYSHOOT);
             this.shootTime = scene.time.now;
 
-            const destination = this.shootDestination;
-            const bubbleForShoot = scene.registry.get('bubbleForShoot');
-
             if (scene.registry.get('debugMode')) console.log('Shooter emit bubble-shoot');
-            scene.events.emit('bubble-shoot', {
-                path: this.pathMove,
-                tile: { index: bubbleForShoot },
-                callBack: () => {
-                    if (scene.registry.get('debugMode')) console.log('Shooter emit shoot-end');
-                    scene.events.emit('shoot-end', {
-                        destination: destination,
-                        color: bubbleForShoot
-                    });
-                }
-            });
+            scene.events.emit('bubble-shoot');
+
+            this.onBubbleShoot();
         }
 
         this.angle = angle;
 
     }
+    
+    onBubbleShoot() {
+        const scene = this.scene;
+
+        const sprite = scene.add.follower(this.pathMove, SHOOTER_POS.x, SHOOTER_POS.y, 'bubbles_sprites', scene.registry.get('bubbleForShoot'));
+        scene.bubbleContainer.add(sprite);
+        const duration = this.pathMove.getLength(); // 1 pixel/ms ?
+
+        sprite.startFollow({
+            duration: duration,
+            ease: 'Sine.easeIn',
+            repeat: 0,
+            onComplete: () => {
+                if (sprite) sprite.destroy();
+
+                if (scene.registry.get('debugMode')) console.log('Shooter emit shoot-end');
+                scene.events.emit('shoot-end', {
+                    destination: this.shootDestination,
+                    color: scene.registry.get('bubbleForShoot')
+                });
+            }
+        });
+    }
 
     calculatePath() {
-
-        // rayon
 
         let rayonAngle = Phaser.Math.DegToRad(Math.round(this.angle - 90));
         let currentIntersection = { x: SHOOTER_POS.x, y: SHOOTER_POS.y };
@@ -131,9 +142,11 @@ export default class Shooter {
                 if (intersection == null) return;
                 if (intersection.x == currentIntersection.x && intersection.y == currentIntersection.y) return;
                 intersection.type = wall.type;
-                intersection.collisionNeighbors = wall.collisionNeighbors;
+                intersection.cible = wall.cible;
                 intersectionList.push(intersection);
             });
+
+            if( intersectionList.length == 0 ) break;
 
             let closestIntersection = { x: 0, y: 0 };
             intersectionList.forEach(intersection => {
@@ -142,9 +155,12 @@ export default class Shooter {
             });
             currentIntersection = closestIntersection;
 
+            if( currentIntersection.cible ) 
+                this.shootDestination = currentIntersection.cible;
+
             this.pathView.lineTo(currentIntersection.x, currentIntersection.y);
-            if (currentIntersection.collisionNeighbors)
-                this.pathMove.lineTo(currentIntersection.collisionNeighbors.end.x, currentIntersection.collisionNeighbors.end.y);
+            if (currentIntersection.cible)
+                this.pathMove.lineTo(currentIntersection.cible.pixel.x, currentIntersection.cible.pixel.y);
             else
                 this.pathMove.lineTo(currentIntersection.x, currentIntersection.y);
 
@@ -153,13 +169,11 @@ export default class Shooter {
             } else break;
 
         };
-        if (currentIntersection.collisionNeighbors) {
-            this.shootDestination = currentIntersection.collisionNeighbors.point;
-            if (this.scene.registry.get('debugMode')) {
-                this.graphics.clear();
-                this.graphics.fillStyle(0x000000, 0.1);
-                this.graphics.fillCircle(currentIntersection.collisionNeighbors.end.x, currentIntersection.collisionNeighbors.end.y, 32);
-            }
+        
+        if (this.scene.registry.get('debugMode')) {
+            this.graphics.clear();
+            this.graphics.fillStyle(0x000000, 0.1);
+            this.graphics.fillCircle(this.shootDestination.pixel.x, this.shootDestination.pixel.y, 32);
         }
     }
 

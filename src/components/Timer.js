@@ -3,7 +3,8 @@ import {
     NEEDLE_POS,
     GAME_WIDTH,
     GAME_HEIGHT,
-    END_TIMEOUT
+    END_TIMEOUT,
+    TIMER_DURATION
 } from '../constants.js';
 
 export default class Timer {
@@ -53,7 +54,7 @@ export default class Timer {
         this.scene.tweens.add({
             targets: this.needle,
             angle: 360,
-            duration: 120000,
+            duration: TIMER_DURATION,
             onComplete: () => {
                 this.scene.events.emit('level-done', { end: END_TIMEOUT });
             },
