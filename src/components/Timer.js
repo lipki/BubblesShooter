@@ -51,7 +51,7 @@ export default class Timer {
         const registry = this.scene.registry;
         if (registry.get('debugMode')) console.log('Timer exec level-start');
 
-        this.scene.tweens.add({
+        this.tween = this.scene.tweens.add({
             targets: this.needle,
             angle: 360,
             duration: TIMER_DURATION,
@@ -75,6 +75,10 @@ export default class Timer {
                 }
             }
         });
+    }
+
+    stop() {
+        this.tween.stop();
     }
 
     destroy() {

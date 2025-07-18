@@ -2,13 +2,15 @@ import * as Phaser from 'https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.esm.j
 import { GAME_WIDTH, GAME_HEIGHT } from './constants.js';
 import BootScene from './scenes/BootScene.js';
 import PreloadScene from './scenes/PreloadScene.js';
-import BubbleShooterEngine from './scenes/BubbleShooterEngine.js';
+import CurtainScene from './scenes/CurtainScene.js'
+import ChapitreScene from './scenes/ChapitreScene.js'
+import LevelEngine from './scenes/LevelEngine.js';
+import InputManagerScene from './scenes/InputManagerScene.js';
 
 const game = new Phaser.Game({
     type: Phaser.AUTO,
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
-    //render: { pixelArt: true },
     transparent: true,
     max: {
         width: GAME_WIDTH,
@@ -19,5 +21,5 @@ const game = new Phaser.Game({
         autoCenter: Phaser.Scale.CENTER_BOTH
     },
     parent: "body",
-    scene: [BootScene, PreloadScene, BubbleShooterEngine],
+    scene: [BootScene, InputManagerScene, PreloadScene, CurtainScene, LevelEngine, ChapitreScene],
 });
